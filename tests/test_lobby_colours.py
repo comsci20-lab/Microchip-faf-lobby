@@ -35,3 +35,29 @@ for label,code in [
 normalized=source.replace('in GUI.slots do','in pairs(GUI.slots) do')
 lua.execute('assert(loadstring(...))',normalized)
 print('PASS complete hook Lua 5.1 syntax')
+
+# Exercise the real popup callback with no global BitmapCombo: upstream keeps it local to CreateSlot.
+lua.execute(r"""
+local function control() return {Destroy=function(self) self.destroyed=true end} end
+parent={}; GUI.panel={}; GUI.patchnotesButton={}
+Prefs.SetToCurrentProfile=function(key,value) savedKey=key; savedColours=value end
+local layout=setmetatable({Below=function(button,anchor,gap) assert(anchor==GUI.patchnotesButton and gap==4) end}, {__index=function() return function() end end})
+UIUtil={CreateButtonWithDropshadow=function(owner,texture,label)
+ assert(owner==GUI.panel and label=='Colour prefs'); menuButton=control(); return menuButton end,
+ CreateButtonStd=function() closeButton=control(); return closeButton end,
+ CreateText=function() return control() end}
+Tooltip={AddControlTooltipManual=function() end}
+combos={}
+import=function(path)
+ if path=='/lua/maui/layouthelpers.lua' then return layout end
+ if path=='/lua/ui/controls/combo.lua' then return {BitmapCombo=function(owner,colours,selected)
+  local c=control(); table.insert(combos,c); return c end} end
+ if path=='/lua/maui/group.lua' then return {Group=control} end
+ if path=='/lua/ui/controls/popups/popup.lua' then return {Popup=function() popup=control(); return popup end} end
+ error('Unexpected import: '..path)
+end
+""")
+show=source[source.index('local function ShowColourPreferences()'):source.index('\nfunction CreateUI(maxPlayers)', source.index('local function ShowColourPreferences()'))]
+lua.execute(block+show+'\nShowColourPreferences(); menuButton.OnClick()')
+lua.execute("assert(popup and #combos==3); combos[2]:OnClick(18); assert(savedKey=='MicrochipLobbyColours' and savedColours[2]==18); closeButton.OnClick(); assert(popup.destroyed)")
+print('PASS popup opens, creates three selectors, saves preference and closes without global BitmapCombo')
