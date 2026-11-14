@@ -38,10 +38,10 @@ print('PASS complete hook Lua 5.1 syntax')
 
 # Exercise the real popup callback with no global BitmapCombo: upstream keeps it local to CreateSlot.
 lua.execute(r"""
-local function control() return {Destroy=function(self) self.destroyed=true end} end
-parent={}; GUI.panel={}; GUI.patchnotesButton={}
+local function control() return {Destroy=function(self) self.destroyed=true end, UseAlphaHitTest=function(self,v) self.alphaHitTest=v end} end
+parent={}; GUI.panel={}; GUI.patchnotesButton={x=857,y=699}; GUI.gameoptionsButton={x=965,y=699}; GUI.restrictedUnitsOrPresetsBtn=control(); GUI.restrictedUnitsOrPresetsBtn.x=912; GUI.restrictedUnitsOrPresetsBtn.y=749
 Prefs.SetToCurrentProfile=function(key,value) savedKey=key; savedColours=value end
-local layout=setmetatable({Below=function(button,anchor,gap) assert(anchor==GUI.patchnotesButton and gap==4) end}, {__index=function() return function() end end})
+local layout=setmetatable({AtHorizontalCenterIn=function(c,a) c.x=a.x end, AtVerticalCenterIn=function(c,a) c.y=a.y end}, {__index=function() return function() end end})
 UIUtil={CreateButtonWithDropshadow=function(owner,texture,label)
  assert(owner==GUI.panel and label=='Colour prefs'); menuButton=control(); return menuButton end,
  CreateButtonStd=function() closeButton=control(); return closeButton end,
@@ -61,3 +61,14 @@ show=source[source.index('local function ShowColourPreferences()'):source.index(
 lua.execute(block+show+'\nShowColourPreferences(); menuButton.OnClick()')
 lua.execute("assert(popup and #combos==3); combos[2]:OnClick(18); assert(savedKey=='MicrochipLobbyColours' and savedColours[2]==18); closeButton.OnClick(); assert(popup.destroyed)")
 print('PASS popup opens, creates three selectors, saves preference and closes without global BitmapCombo')
+
+# Native medium button bodies (alpha >= 128, excluding soft outer glow) fit within +/-52 horizontal and +/-18 vertical pixels.
+# Check the changed bottom row against both controls above it at every supported scale.
+for scale in (0.8, 1, 1.25, 1.5, 1.75, 2):
+    controls=[lua.globals().menuButton, lua.globals().GUI.restrictedUnitsOrPresetsBtn, lua.globals().GUI.patchnotesButton, lua.globals().GUI.gameoptionsButton]
+    bounds=[((c.x-52)*scale,(c.y-18)*scale,(c.x+52)*scale,(c.y+18)*scale) for c in controls]
+    for i,a in enumerate(bounds[:2]):
+        for b in bounds[i+1:]:
+            assert a[2]<=b[0] or b[2]<=a[0] or a[3]<=b[1] or b[3]<=a[1], (scale,a,b)
+print('PASS bottom-row visible button bodies do not overlap each other or Patchnotes/Options at all six UI scales')
+
