@@ -249,12 +249,16 @@ end
 
 local function ShowColourPreferences()
     local Layout = import('/lua/maui/layouthelpers.lua')
-    local button = UIUtil.CreateButtonStd(parent, '/BUTTON/medium/', 'Colour preferences', 12)
-    Layout.SetDimensions(button, 170, 32)
-    Layout.AtRightTopIn(button, parent, 301, 45)
+    local BitmapCombo = import('/lua/ui/controls/combo.lua').BitmapCombo
+    local button = UIUtil.CreateButtonWithDropshadow(GUI.panel, '/BUTTON/medium/', 'Colour prefs')
+    GUI.colourPreferencesButton = button
+    Layout.Below(button, GUI.patchnotesButton, 4)
+    Layout.AtHorizontalCenterIn(button, GUI.patchnotesButton)
+    Tooltip.AddControlTooltipManual(button, 'Colour preferences',
+        'Choose your first, second and third preferred lobby colours.')
     button.OnClick = function()
         local content = import('/lua/maui/group.lua').Group(parent)
-        content.Width:Set(430); content.Height:Set(255)
+        Layout.SetDimensions(content, 430, 255)
         local title = UIUtil.CreateText(content, 'Preferred lobby colours', 18, UIUtil.titleFont)
         Layout.AtLeftTopIn(title, content, 20, 15)
         local hint = UIUtil.CreateText(content, 'Uses the first free colour; upgrades when available.', 12, UIUtil.bodyFont)
